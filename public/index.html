@@ -1,77 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fermentors AI App</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        header { text-align: center; }
-        #lesson { margin: 20px 0; }
-        #widget { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; }
-        #ai-form, #signup-form { margin: 20px 0; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Fermentors – Chemistry Mini-Courses</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f7fb;
+      color: #222;
+    }
+    header {
+      padding: 1.5rem 1rem;
+      background: #182b4d;
+      color: #fff;
+      text-align: center;
+    }
+    main {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem 3rem;
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+      margin-bottom: 1.5rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.7em 1.4em;
+      border-radius: 0.4em;
+      background: #1b73e8;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .btn-secondary {
+      background: #444;
+    }
+    .small {
+      font-size: 0.9rem;
+      color: #555;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to Fermentors AI</h1>
-    </header>
-    <main>
-        <section id="lesson">
-            <h2>Lesson Content</h2>
-            <p>This is an example lesson on AI basics for Fermentors. AI stands for Artificial Intelligence, which enables machines to perform tasks that typically require human intelligence.</p>
-        </section>
-        <section id="widget">
-            <h2>AI Chat Widget</h2>
-            <div id="chat-display"></div>
-        </section>
-        <section id="ai-query">
-            <h2>Ask the AI</h2>
-            <form id="ai-form">
-                <input type="text" id="ai-input" placeholder="Enter your question" required>
-                <button type="submit">Send</button>
-            </form>
-        </section>
-        <section id="sign-up">
-            <h2>Sign Up</h2>
-            <form id="signup-form">
-                <input type="email" id="email" placeholder="Email" required>
-                <input type="password" id="password" placeholder="Password" required>
-                <button type="submit">Sign Up</button>
-            </form>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2025 Fermentors</p>
-    </footer>
-    <script>
-        // Handle AI query
-        document.getElementById('ai-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const query = document.getElementById('ai-input').value;
-            const response = await fetch('/ai', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, personality: 'Elena the Engineer' })
-            });
-            const data = await response.json();
-            document.getElementById('chat-display').innerHTML += `<p><strong>You:</strong> ${query}</p><p><strong>AI:</strong> ${data.response}</p>`;
-            document.getElementById('ai-input').value = '';
-        });
+  <header>
+    <h1>Fermentors</h1>
+    <p>Science is everywhere. Anyone can be a teacher.</p>
+  </header>
 
-        // Handle sign-up
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const response = await fetch('/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await response.json();
-            alert(data.message || 'Sign-up successful!');
-        });
-    </script>
+  <main>
+    <section class="card">
+      <h2>Pilot: Atoms &amp; Isotopes Mini-Course</h2>
+      <p>
+        We’re running a weekly pilot of our first chemistry mini-course,
+        <strong>Atoms &amp; Isotopes</strong>, hosted on Canvas.
+        Each week we open a limited number of spots, then reset the classroom
+        for the next cohort to keep things fresh and private.
+      </p>
+
+      <!-- Manual counter for now -->
+      <p>
+        <strong>Active learners:</strong> 0 / 50<br>
+        <span class="small">(Updated manually during pilots.)</span>
+      </p>
+
+      <p style="margin-top: 1rem;">
+        <a class="btn"
+           href="PASTE-YOUR-CANVAS-ENROLL-URL-HERE">
+          Join the Atoms &amp; Isotopes Mini-Course
+        </a>
+      </p>
+
+      <p class="small">
+        You’ll be taken to Canvas to create a free account or sign in.
+        After the pilot week, student accounts are cleared and the course is
+        refreshed for the next group.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>How It Works</h2>
+      <ol class="small">
+        <li>Click “Join the Atoms &amp; Isotopes Mini-Course”.</li>
+        <li>Create a free Canvas account or sign in.</li>
+        <li>Enroll in the 3-session mini-course (2 hours per session).</li>
+        <li>At the end of the week, we reset accounts and prep for the next cohort.</li>
+      </ol>
+    </section>
+  </main>
 </body>
 </html>
