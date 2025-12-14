@@ -1,22 +1,31 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
+'use strict';
+
 const path = require('path');
+// Always load the .env located next to THIS file (not cwd)
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+
+// ---- Startup sanity (no secrets printed) ----
+console.log('Starting Fermentors server…');
+console.log('ADMIN_USER loaded as:', process.env.ADMIN_USER || '(missing)');
+console.log('ADMIN_PASS length:', (process.env.ADMIN_PASS || '').length);
+console.log('AI_SHARED_SECRET set:', !!process.env.AI_SHARED_SECRET);
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(helmet());
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(express.static('public'));
 
-// ---- Basic rate limits (small step; we’ll tune later) ----
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });  // signup/login
-const aiLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });  // AI calls
+// ---- Rate limits (tune later) ----
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+const aiLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 
 // ---- Admin Basic Auth middleware ----
 function requireAdmin(req, res, next) {
@@ -36,26 +45,29 @@ function requireAdmin(req, res, next) {
   return res.status(403).send('Forbidden.');
 }
 
-// ---- Optional: lock AI endpoint with a shared secret ----
-// This is NOT the final model. It’s a quick “stop the bleeding” gate.
-// Later we’ll tie AI usage to paid seats + parent accounts.
+// ---- AI gate: REQUIRED to protect your xAI key ----
 function requireAiKey(req, res, next) {
+  if (!process.env.AI_SHARED_SECRET) {
+    return res.status(500).json({ error: 'Server misconfigured: missing AI_SHARED_SECRET' });
+  }
   const provided = req.headers['x-fermentors-ai-key'];
-  if (!process.env.AI_SHARED_SECRET) return next(); // if not set, don’t enforce
   if (provided && provided === process.env.AI_SHARED_SECRET) return next();
   return res.status(401).json({ error: 'Missing/invalid AI key.' });
 }
 
-// Load personalities
-const personalities = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'personalities.json'), 'utf-8')
-);
+// Load personalities (safe default if file missing)
+let personalities = {};
+try {
+  personalities = JSON.parse(fs.readFileSync(path.join(__dirname, 'personalities.json'), 'utf-8'));
+} catch (e) {
+  console.warn('Warning: personalities.json not loaded:', e.message);
+  personalities = {};
+}
 
-// Supabase client (anon key is fine for signup; do NOT use service role on the client)
+// Supabase client (anon key is fine for signup; do NOT use service role here)
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// ---- Admin static page placeholder (we’ll add real admin UI later) ----
-// Put an admin index at: /admin/index.html (served from /admin folder if you create it)
+// ---- Admin endpoint (locked) ----
 app.get('/admin', requireAdmin, (req, res) => {
   res.type('html').send(`
     <h1>Fermentors Admin (locked)</h1>
@@ -63,9 +75,14 @@ app.get('/admin', requireAdmin, (req, res) => {
   `);
 });
 
-// AI endpoint (now rate-limited + optionally locked)
+// ---- Admin health (locked JSON) ----
+app.get('/admin/health', requireAdmin, (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
+
+// ---- AI endpoint (rate-limited + locked) ----
 app.post('/ai', aiLimiter, requireAiKey, async (req, res) => {
-  const { query, personality } = req.body;
+  const { query, personality } = req.body || {};
   const systemPrompt = personalities[personality] || 'You are a helpful AI assistant.';
 
   try {
@@ -79,7 +96,7 @@ app.post('/ai', aiLimiter, requireAiKey, async (req, res) => {
         model: 'grok-4',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: query }
+          { role: 'user', content: String(query || '') }
         ],
         stream: false
       })
@@ -87,16 +104,15 @@ app.post('/ai', aiLimiter, requireAiKey, async (req, res) => {
 
     const data = await apiResponse.json();
     if (data.error) throw new Error(data.error.message);
-    res.json({ response: data.choices[0].message.content });
+    res.json({ response: data.choices?.[0]?.message?.content ?? '' });
   } catch (error) {
     res.status(500).json({ error: `AI call failed: ${error.message}` });
   }
 });
 
-// Sign-up endpoint (rate-limited; still public)
+// ---- Signup endpoint (rate-limited; still public for now) ----
 app.post('/signup', authLimiter, async (req, res) => {
-  const { email, password } = req.body;
-
+  const { email, password } = req.body || {};
   try {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
