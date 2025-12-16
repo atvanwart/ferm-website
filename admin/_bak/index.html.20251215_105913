@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fermentors Admin</title>
+  <style>
+    :root { --border:#e5e7eb; --muted:#6b7280; --bg:#ffffff; --panel:#fafafa; }
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; margin: 2rem; background: var(--bg); color:#111827; }
+    h1 { margin: 0 0 .25rem 0; }
+    h2 { font-size: 1.05rem; margin: 0 0 .75rem 0; }
+    .small { color: var(--muted); font-size: .9rem; margin: .25rem 0 0 0; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 1rem; max-width: 980px; }
+    @media (min-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { padding: 1.25rem; border: 1px solid var(--border); border-radius: 14px; background: white; }
+    .card.soft { background: var(--panel); }
+    .row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+    label { display: inline-flex; flex-direction: column; gap: .35rem; }
+    input, select {
+      padding: .6rem .75rem; border-radius: 10px; border: 1px solid #d1d5db;
+      min-width: 260px; background: white;
+    }
+    button {
+      padding: .65rem 1rem; border-radius: 10px; border: 1px solid #d1d5db;
+      cursor: pointer; background: white;
+    }
+    button.primary { background: #1b73e8; color: white; border-color: #1b73e8; }
+    button.danger { background: #b42318; color: white; border-color: #b42318; }
+    button.warn { background: #f59e0b; color: #111827; border-color: #f59e0b; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .kvs { display:grid; grid-template-columns: 160px 1fr; gap:.35rem .75rem; font-size:.95rem; }
+    .kvs div.key { color: var(--muted); }
+    .pill { display:inline-block; padding:.15rem .5rem; border:1px solid var(--border); border-radius:999px; font-size:.85rem; color:#111827; background:white; }
+    .info {
+      display:inline-flex; align-items:center; justify-content:center;
+      width: 18px; height: 18px; border-radius: 999px; border:1px solid #cbd5e1;
+      color:#334155; font-size:.8rem; margin-left:.35rem; cursor: help; background:white;
+    }
+    pre { background: #0b1020; color: #e5e7eb; padding: 1rem; border-radius: 14px; overflow:auto; max-width: 980px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .sectionTitle { display:flex; align-items:center; gap:.4rem; }
+    .right { margin-left:auto; }
+    .divider { height:1px; background: var(--border); margin: 1rem 0; }
+    .dangerZone { border:1px dashed #fca5a5; }
+  </style>
+</head>
+<body>
+  <div style="max-width:980px;">
+    <h1>Fermentors Admin</h1>
+    <p class="small">Protected by Basic Auth. This page calls your backend API.</p>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: Course + Status -->
+    <div class="card">
+      <div class="row">
+        <div class="sectionTitle">
+          <h2 style="margin:0;">Course</h2>
+          <span class="info" title="A course 'slug' is your friendly ID in courses.json (e.g., atoms_isotopes).">i</span>
+        </div>
+        <button id="btnRefresh" class="right">Refresh</button>
+      </div>
+
+      <div class="row" style="margin-top:.5rem;">
+        <label>
+          Course slug
+          <input id="slug" value="atoms_isotopes" />
+        </label>
+        <label>
+          Known courses
+          <select id="courseSelect">
+            <option value="">(loading…)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="kvs">
+        <div class="key">Server time</div>
+        <div><span class="pill mono" id="serverNow">—</span></div>
+
+        <div class="key">Auto-purge</div>
+        <div><span class="pill mono" id="apEnabled">—</span></div>
+
+        <div class="key">Auto-purge run_at</div>
+        <div><span class="pill mono" id="apRunAt">—</span></div>
+
+        <div class="key">Last auto-purge</div>
+        <div><span class="pill mono" id="apLast">—</span></div>
+      </div>
+
+      <p class="small" style="margin-top:.75rem;">
+        Tip: if you ever don’t get a Basic Auth prompt, open a private window or hit
+        <span class="mono">/admin/health</span> first.
+      </p>
+    </div>
+
+    <!-- RIGHT: Auto-purge Schedule -->
+    <div class="card soft">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Auto-purge scheduler</h2>
+        <span class="info" title="One-shot scheduler stored in autopurge.json. If enabled, the server will purge at run_at then disable itself.">i</span>
+      </div>
+
+      <p class="small">Current server time is shown above. Use ISO scheduling via the controls below.</p>
+
+      <div class="row" style="margin-top:.5rem;">
+        <label>
+          Enable auto-purge?
+          <div class="row" style="gap:.5rem;">
+            <label style="flex-direction:row; align-items:center; gap:.4rem;">
+              <input type="radio" name="apOn" value="yes" id="apYes"> Yes
+            </label>
+            <label style="flex-direction:row; align-items:center; gap:.4rem;">
+              <input type="radio" name="apOn" value="no" id="apNo" checked> No
+            </label>
+            <span class="info" title="Yes = schedule a one-time purge. No = disable any existing schedule.">i</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="row" style="margin-top:.5rem;">
+        <label>
+          Auto-purge date/time
+          <input id="apWhen" type="datetime-local" disabled />
+        </label>
+        <button id="btnSaveAp" class="primary" disabled>Save schedule</button>
+      </div>
+
+      <p class="small" style="margin-top:.5rem;">
+        Example: set for Sunday night after the course closes.
+      </p>
+    </div>
+
+    <!-- LEFT: Safe actions -->
+    <div class="card">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Safe actions</h2>
+        <span class="info" title="Safe actions do not delete enrollments.">i</span>
+      </div>
+
+      <div class="row" style="margin-top:.75rem;">
+        <button class="primary" id="btnSync">Sync (Canvas → Fermentors)</button>
+        <span class="info" title="Fetches enrollments and verification assignment submissions and reports counts.">i</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button class="warn" id="btnPreviewPurge">Preview Purge</button>
+        <span class="info" title="Dry-run: shows how many enrollments would be removed, and which are protected (skipped).">i</span>
+      </div>
+
+      <p class="small" style="margin-top:.5rem;">
+        Preview first. Your own test account can be protected via <span class="mono">protected_user_ids</span> in courses.json.
+      </p>
+    </div>
+
+    <!-- RIGHT: Dangerous actions -->
+    <div class="card dangerZone">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Danger zone</h2>
+        <span class="info" title="These actions remove enrollments in Canvas. Use Preview first.">i</span>
+      </div>
+
+      <div class="row" style="margin-top:.75rem;">
+        <button class="danger" id="btnResetWeek">Reset Week</button>
+        <span class="info" title="Reset Week = purge enrollments (delete/conclude) AND disables auto-purge for safety. Requires typing RESET.">i</span>
+      </div>
+
+      <div class="row" style="margin-top:.75rem;">
+        <button class="danger" id="btnPurgeNow">Purge Now</button>
+        <span class="info" title="Purges enrollments immediately. Requires typing PURGE.">i</span>
+      </div>
+
+      <p class="small" style="margin-top:.75rem;">
+        Protection rule: protected users are skipped automatically.
+      </p>
+    </div>
+  </div>
+
+  <h2 style="max-width:980px; margin-top:1.25rem;">Output</h2>
+  <pre id="out">{ "ready": true }</pre>
+
+<script>
+  const out = document.getElementById('out');
+  const slugEl = document.getElementById('slug');
+  const courseSelect = document.getElementById('courseSelect');
+
+  const serverNowEl = document.getElementById('serverNow');
+  const apEnabledEl = document.getElementById('apEnabled');
+  const apRunAtEl = document.getElementById('apRunAt');
+  const apLastEl = document.getElementById('apLast');
+
+  const apYes = document.getElementById('apYes');
+  const apNo  = document.getElementById('apNo');
+  const apWhen = document.getElementById('apWhen');
+  const btnSaveAp = document.getElementById('btnSaveAp');
+
+  function show(obj) {
+    out.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  }
+
+  async function getJson(url) {
+    const r = await fetch(url);
+    const text = await r.text();
+    try { return { ok: r.ok, status: r.status, json: JSON.parse(text) }; }
+    catch { return { ok: r.ok, status: r.status, raw: text }; }
+  }
+
+  async function postJson(url, bodyObj) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyObj || {})
+    });
+    const text = await r.text();
+    try { return { ok: r.ok, status: r.status, json: JSON.parse(text) }; }
+    catch { return { ok: r.ok, status: r.status, raw: text }; }
+  }
+
+  function activeSlug() {
+    const v = slugEl.value.trim();
+    return v || '';
+  }
+
+  function setAutoUiEnabled(enabled) {
+    apWhen.disabled = !enabled;
+    btnSaveAp.disabled = false; // you can always save (to disable too)
+  }
+
+  function isoToLocalDatetimeValue(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth()+1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  async function refreshCourses() {
+    const res = await getJson('/admin/api/courses');
+    if (!res.ok) {
+      show(res.json || res.raw || res);
+      courseSelect.innerHTML = '<option value="">(failed)</option>';
+      return;
+    }
+    const courses = res.json || {};
+    const slugs = Object.keys(courses);
+    courseSelect.innerHTML = '<option value="">(select)</option>' +
+      slugs.map(s => `<option value="${s}">${s} — ${courses[s].title || ''}</option>`).join('');
+  }
+
+  async function refreshAutoPurge() {
+    const slug = activeSlug();
+    if (!slug) return;
+
+    const res = await getJson(`/admin/api/autopurge/${encodeURIComponent(slug)}`);
+    if (!res.ok) {
+      serverNowEl.textContent = '—';
+      apEnabledEl.textContent = '—';
+      apRunAtEl.textContent = '—';
+      apLastEl.textContent = '—';
+      show(res.json || res.raw || res);
+      return;
+    }
+
+    const j = res.json;
+    serverNowEl.textContent = j.server_now || '—';
+    apEnabledEl.textContent = j.enabled ? 'ENABLED' : 'disabled';
+    apRunAtEl.textContent = j.run_at || '—';
+    apLastEl.textContent = j.last_run_at ? `${j.last_run_at} (${j.last_status || '—'})` : '—';
+
+    // reflect into controls
+    if (j.enabled) {
+      apYes.checked = true;
+      apNo.checked = false;
+      apWhen.value = isoToLocalDatetimeValue(j.run_at);
+      setAutoUiEnabled(true);
+    } else {
+      apYes.checked = false;
+      apNo.checked = true;
+      apWhen.value = '';
+      setAutoUiEnabled(false);
+    }
+  }
+
+  async function refreshAll() {
+    await refreshCourses();
+    await refreshAutoPurge();
+  }
+
+  // events
+  document.getElementById('btnRefresh').addEventListener('click', async () => {
+    show('Refreshing…');
+    await refreshAll();
+    show({ ok: true, refreshed: true });
+  });
+
+  courseSelect.addEventListener('change', async () => {
+    const v = courseSelect.value;
+    if (v) slugEl.value = v;
+    show('Loading course status…');
+    await refreshAutoPurge();
+    show({ ok: true, slug: activeSlug() });
+  });
+
+  apYes.addEventListener('change', () => setAutoUiEnabled(true));
+  apNo.addEventListener('change', () => setAutoUiEnabled(false));
+
+  btnSaveAp.addEventListener('click', async () => {
+    const slug = activeSlug();
+    if (!slug) return show('Missing slug');
+
+    const enabled = apYes.checked;
+    let run_at = null;
+
+    if (enabled) {
+      if (!apWhen.value) return show('Choose a date/time first.');
+      const d = new Date(apWhen.value);
+      if (isNaN(d.getTime())) return show('Invalid datetime.');
+      run_at = d.toISOString();
+    }
+
+    show('Saving auto-purge schedule…');
+    const res = await postJson(`/admin/api/autopurge/${encodeURIComponent(slug)}`, { enabled, run_at });
+    show(res.json || res.raw || res);
+    await refreshAutoPurge();
+  });
+
+  document.getElementById('btnSync').addEventListener('click', async () => {
+    const slug = activeSlug();
+    if (!slug) return show('Missing slug');
+    show('Running sync…');
+    const res = await postJson(`/admin/jobs/sync/${encodeURIComponent(slug)}`);
+    show(res.json || res.raw || res);
+  });
+
+  document.getElementById('btnPreviewPurge').addEventListener('click', async () => {
+    const slug = activeSlug();
+    if (!slug) return show('Missing slug');
+    show('Previewing purge…');
+    const res = await getJson(`/admin/jobs/purge/${encodeURIComponent(slug)}`);
+    show(res.json || res.raw || res);
+  });
+
+  document.getElementById('btnPurgeNow').addEventListener('click', async () => {
+    const slug = activeSlug();
+    if (!slug) return show('Missing slug');
+
+    const typed = prompt(`Type PURGE to purge enrollments for "${slug}".\n(Protected users will be skipped.)`);
+    if (typed !== 'PURGE') return show('Cancelled.');
+
+    show('Purging now…');
+    const res = await postJson(`/admin/jobs/purge/${encodeURIComponent(slug)}`, { confirm: 'PURGE' });
+    show(res.json || res.raw || res);
+    await refreshAutoPurge();
+  });
+
+  document.getElementById('btnResetWeek').addEventListener('click', async () => {
+    const slug = activeSlug();
+    if (!slug) return show('Missing slug');
+
+    const typed = prompt(`Type RESET to Reset Week for "${slug}".\nThis purges enrollments and disables auto-purge.`);
+    if (typed !== 'RESET') return show('Cancelled.');
+
+    show('Resetting week…');
+    const res = await postJson(`/admin/jobs/reset_week/${encodeURIComponent(slug)}`, { confirm: 'RESET' });
+    show(res.json || res.raw || res);
+    await refreshAutoPurge();
+  });
+
+  // initial load
+  (async () => {
+    await refreshAll();
+  })();
+</script>
+</body>
+</html>

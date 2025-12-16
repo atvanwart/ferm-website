@@ -1,0 +1,212 @@
+<!--
+  SECTION INDEX (admin/ui.html)
+  1) HEADER
+  2) STATUS (server + local clock)
+  3) COURSE SELECT
+  4) ACTIONS (sync / purge / reset week)
+  5) AUTOPURGE
+  6) OUTPUT
+-->
+
+<div class="wrap">
+  <!-- === SECTION: HEADER === -->
+  <header class="topbar">
+    <div>
+      <div class="title">Fermentors Admin</div>
+      <div class="subtitle">Protected by Basic Auth. Actions here call your backend API.</div>
+    </div>
+    <div class="pill" id="healthPill">Connecting…</div>
+  </header>
+  <!-- === ENDSECTION: HEADER === -->
+
+  <main class="grid">
+    <!-- === SECTION: STATUS === -->
+    <section class="card">
+      <div class="cardHead">
+        <h2>Clock</h2>
+        <span class="info" data-tip="Shows the server's UTC time (from /admin/health), plus your browser's local time. Useful for scheduling auto-purge.">ⓘ</span>
+      </div>
+
+      <div class="kv">
+        <div class="k">Server (UTC)</div>
+        <div class="v mono" id="serverUtc">—</div>
+
+        <div class="k">Server (Chicago)</div>
+        <div class="v mono" id="serverChicago">—</div>
+
+        <div class="k">Browser (Local)</div>
+        <div class="v mono" id="browserLocal">—</div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnRefresh">Refresh status</button>
+      </div>
+    </section>
+    <!-- === ENDSECTION: STATUS === -->
+
+    <!-- === SECTION: COURSE SELECT === -->
+    <section class="card">
+      <div class="cardHead">
+        <h2>Course</h2>
+        <span class="info" data-tip="Pick the course you want to manage. Slug is the key used by Fermentors (e.g., atoms_isotopes).">ⓘ</span>
+      </div>
+
+      <div class="row">
+        <label class="field">
+          <span>Course</span>
+          <select id="courseSelect"></select>
+        </label>
+
+        <label class="field">
+          <span>Slug</span>
+          <input id="slug" value="atoms_isotopes" spellcheck="false" />
+        </label>
+      </div>
+
+      <div class="kv">
+        <div class="k">Title</div>
+        <div class="v" id="courseTitle">—</div>
+
+        <div class="k">Canvas course_id</div>
+        <div class="v mono" id="courseCanvasId">—</div>
+
+        <div class="k">Verification assignment_id</div>
+        <div class="v mono" id="courseVerifyId">—</div>
+
+        <div class="k">Protected user_ids</div>
+        <div class="v mono" id="courseProtected">—</div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnLoadCourses">Reload courses</button>
+      </div>
+    </section>
+    <!-- === ENDSECTION: COURSE SELECT === -->
+
+    <!-- === SECTION: ACTIONS === -->
+    <section class="card">
+      <div class="cardHead">
+        <h2>Actions</h2>
+        <span class="info" data-tip="Sync is safe. Purge/Reset are destructive: they remove student enrollments from Canvas (with protections applied).">ⓘ</span>
+      </div>
+
+      <div class="block">
+        <div class="blockHead">
+          <h3>Sync</h3>
+          <span class="info" data-tip="Pulls Canvas enrollments + verification submissions for the selected course.">ⓘ</span>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnSync">Sync (Canvas → Fermentors)</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="blockHead">
+          <h3>Purge</h3>
+          <span class="info" data-tip="Dry-run shows what would be removed. Execute removes student enrollments (skipping protected users).">ⓘ</span>
+        </div>
+
+        <div class="row">
+          <button class="btn" id="btnPurgePreview">Purge (dry-run preview)</button>
+        </div>
+
+        <div class="row">
+          <label class="field grow">
+            <span>Type PURGE to enable</span>
+            <input id="purgeConfirm" placeholder="PURGE" spellcheck="false" />
+          </label>
+          <button class="btn danger" id="btnPurgeExec" disabled>Execute purge</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="blockHead">
+          <h3>Reset Week</h3>
+          <span class="info" data-tip="Runs a purge + disables auto-purge for safety. Use at the start of a new cohort/week.">ⓘ</span>
+        </div>
+
+        <div class="row">
+          <label class="field grow">
+            <span>Type RESET to enable</span>
+            <input id="resetConfirm" placeholder="RESET" spellcheck="false" />
+          </label>
+          <button class="btn danger" id="btnResetWeek" disabled>Reset week</button>
+        </div>
+      </div>
+    </section>
+    <!-- === ENDSECTION: ACTIONS === -->
+
+    <!-- === SECTION: AUTOPURGE === -->
+    <section class="card">
+      <div class="cardHead">
+        <h2>Auto-purge</h2>
+        <span class="info" data-tip="One-shot scheduler. When enabled, the server will purge once at the scheduled time, then auto-disable. Time entered uses your browser local timezone and is sent as UTC.">ⓘ</span>
+      </div>
+
+      <div class="kv">
+        <div class="k">Enabled</div>
+        <div class="v mono" id="apEnabled">—</div>
+
+        <div class="k">Run at (raw)</div>
+        <div class="v mono" id="apRunAt">—</div>
+
+        <div class="k">Run at (Local)</div>
+        <div class="v mono" id="apRunAtLocal">—</div>
+
+        <div class="k">Last run</div>
+        <div class="v mono" id="apLastRun">—</div>
+
+        <div class="k">Last status</div>
+        <div class="v mono" id="apLastStatus">—</div>
+
+        <div class="k">Last removed</div>
+        <div class="v mono" id="apLastRemoved">—</div>
+      </div>
+
+      <hr class="sep" />
+
+      <div class="row">
+        <label class="radio">
+          <input type="radio" name="apMode" value="off" checked />
+          <span>Disabled</span>
+        </label>
+
+        <label class="radio">
+          <input type="radio" name="apMode" value="on" />
+          <span>Enabled (one-shot)</span>
+        </label>
+      </div>
+
+      <div class="row" id="apControls" style="display:none;">
+        <label class="field grow">
+          <span>Run time (browser local)</span>
+          <input id="apWhen" type="datetime-local" />
+        </label>
+        <button class="btn primary" id="btnApSave">Save schedule</button>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnApRefresh">Refresh auto-purge status</button>
+        <button class="btn" id="btnApDisable">Disable auto-purge</button>
+      </div>
+    </section>
+    <!-- === ENDSECTION: AUTOPURGE === -->
+
+    <!-- === SECTION: OUTPUT === -->
+    <section class="card full">
+      <div class="cardHead">
+        <h2>Output</h2>
+        <span class="info" data-tip="All API responses land here (sync/purge/reset/autopurge). Copy/paste this into notes when troubleshooting.">ⓘ</span>
+      </div>
+
+      <div class="row">
+        <div class="flash" id="flash" hidden></div>
+        <button class="btn" id="btnCopy">Copy output</button>
+        <button class="btn" id="btnClear">Clear</button>
+      </div>
+
+      <pre class="pre" id="out">{ "ready": true }</pre>
+    </section>
+    <!-- === ENDSECTION: OUTPUT === -->
+  </main>
+</div>

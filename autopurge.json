@@ -1,0 +1,10 @@
+{
+  "atoms_isotopes": {
+    "enabled": false,
+    "run_at": null,
+    "last_run_at": "2025-12-16T02:54:00.002Z",
+    "last_status": "ok",
+    "last_removed": 2,
+    "last_failures_count": 0
+  }
+}

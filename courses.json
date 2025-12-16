@@ -1,0 +1,15 @@
+{
+  "atoms_isotopes": {
+    "title": "Atoms & Isotopes",
+    "canvas_enroll_url": "https://canvas.instructure.com/enroll/C48R46",
+    "join_code": "C48R46",
+    "canvas_course_id": 13627215,
+    "verification_assignment_id": 60669802,
+    "open_at": "2025-12-14T00:00:00-06:00",
+    "close_at": "2025-12-20T23:59:59-06:00",
+    "purge_at": "2025-12-21T00:05:00-06:00",
+    "protected_user_ids": [
+      120387860
+    ]
+  }
+}
