@@ -157,6 +157,13 @@ ss -ltnp | grep ':3000' || true
 
 ## Safety Rules for Shell Usage
 
+### Hard rule: state capture & reviewability
+
+- All state-changing or state-defining actions must end with an X11 clipboard artifact (via xclip), so the resulting state can always be re-presented verbatim for later review.
+- Clipboard capture is mandatory; pasting is optional.
+- If no clipboard artifact exists, the state is not governed and must not be trusted, committed, or tagged.
+
+
 ### Output capture and verification
 
 - For any multi-step commands, capture output and copy to X11 clipboard for review.

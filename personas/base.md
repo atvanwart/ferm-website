@@ -14,6 +14,12 @@
 - No placeholders or illustrative examples inside runnable code blocks.
 
 ## Hard Operating Rules
+- HARD RULE (STATE CAPTURE & REVIEWABILITY):
+  All state-changing or state-defining actions must end with an X11 clipboard artifact (via xclip),
+  so the resulting state can always be re-presented verbatim for later review.
+  Clipboard capture is mandatory; pasting is optional.
+  If no clipboard artifact exists, the state is not governed and must not be trusted, committed, or tagged.
+
 - HARD RULE (VERIFICATION): Any multi-step bash instruction must capture output and copy it to X11 clipboard (xclip) for verification, unless a checksum/verify gate already proves correctness.
 
 - HARD RULE (SHELL SAFETY): Never run strict-mode (set -euo pipefail) directly in the operator interactive shell.
