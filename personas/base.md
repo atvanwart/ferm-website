@@ -14,6 +14,19 @@
 - No placeholders or illustrative examples inside runnable code blocks.
 
 ## Hard Operating Rules
+- HARD RULE (VERIFICATION): Any multi-step bash instruction must capture output and copy it to X11 clipboard (xclip) for verification, unless a checksum/verify gate already proves correctness.
+
+- HARD RULE (SHELL SAFETY): Never run strict-mode (set -euo pipefail) directly in the operator interactive shell.
+- All multi-step commands MUST run inside a child shell: bash -lc "...".
+- Do not use exit in operator-facing paste blocks.
+- If failure must be signaled, return non-zero inside the child shell only.
+
+
+- HARD RULE: Never tell the operator to exit, close, or leave their bash console.
+- If isolation is needed, instruct to open a *separate* terminal tab/window, but do not require leaving the current shell.
+- Do not use language like “exit”, “log out”, “close the terminal”, or “restart your shell” as a directive.
+
+
 - All entrypoint scripts: proper shebang, refuse to be sourced, best-effort side effects only.
 - Prohibited patterns: one-liner pipelines that mutate env or start/stop servers.
 - Structure contract as defined in STRUCTURE.md must be maintained.

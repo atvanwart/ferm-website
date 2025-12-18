@@ -157,6 +157,27 @@ ss -ltnp | grep ':3000' || true
 
 ## Safety Rules for Shell Usage
 
+### Output capture and verification
+
+- For any multi-step commands, capture output and copy to X11 clipboard for review.
+- Use `FERM_RUNBOOK_SH/20.run_and_clip.sh` to run commands and auto-copy logs.
+- If a built-in gate exists (e.g., `./FERM_RUNBOOK.sh verify`, checksum verification), still capture and share the verify output.
+
+
+### Never kick the operator out of their shell
+
+- Do not paste or advise set -euo pipefail to be run directly in an interactive shell.
+- Wrap strict multi-step work in a child shell: bash -lc "...".
+- Do not use exit in operator-facing paste blocks.
+- Prefer repo scripts (in FERM_RUNBOOK_SH/) that run in their own process.
+
+
+### Hard rule: stay in the bash console
+
+- Never instruct the operator to exit/close/leave their current bash session.
+- If you need a clean context, ask for a separate terminal tab/window.
+
+
 ### Interactive Shell Rules
 - Never run `set -e`, `set -u`, or `set -o pipefail` in an interactive shell.
 - Never combine environment mutation and execution in a single command.
