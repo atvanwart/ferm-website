@@ -25,3 +25,18 @@
 - No placeholders, pseudo-code, or mixed-language snippets inside bash fences.
 - Scripts must fail internally without terminating the parent shell.
 
+## RB-GOV-01 — State Capture & Reviewability
+
+**Rule:** Every state-changing or state-defining action must produce an X11 clipboard artifact (via `xclip`) so the resulting state can always be re-presented verbatim for later review.
+
+**Invariants:**
+- Clipboard capture is mandatory; pasting is optional.
+- If no clipboard artifact exists, the state is not governed.
+- Ungoverned state must not be trusted, committed, or tagged.
+
+**Rationale:** ChatGPT has no durable memory of local execution. Clipboard artifacts preserve optional replay, auditability, and resistance to truncation or narrative drift.
+
+**Enforcement:**
+- Use `FERM_RUNBOOK_SH/20.run_and_clip.sh` (preferred) or `./tools/run_and_clip.sh`.
+- Checksums/verify are acceptable only if their output is capturable.
+
