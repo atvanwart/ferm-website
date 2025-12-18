@@ -15,3 +15,13 @@
 ## Hard rule: all copy/paste blocks are bash-console runnable
 - All assistant-provided copy blocks must be tagged as bash and runnable verbatim in a bash console.
 - No placeholders, no “example” blocks that look runnable, and no mixed-language fences for terminal workflows.
+
+## Hard Rule — Shell Safety (Non-Negotiable)
+
+- Never exit, replace, or terminate the operator’s active bash console.
+- No command, script, or copy-paste block may implicitly or explicitly kick the operator out of their shell.
+- Prohibited in paste blocks: `exit`, `logout`, `exec $SHELL`, `kill -KILL $$`, terminal reset/control sequences.
+- All fenced copy blocks must be runnable verbatim in a bash console.
+- No placeholders, pseudo-code, or mixed-language snippets inside bash fences.
+- Scripts must fail internally without terminating the parent shell.
+
