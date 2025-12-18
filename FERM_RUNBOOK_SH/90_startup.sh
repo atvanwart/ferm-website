@@ -112,3 +112,22 @@ head -n 160 FERM_RUNBOOK.sh
 
 echo
 echo "ENDSTARTUP: $(date +%Y-%m-%dT%H:%M:%S%z)"
+
+
+# --- Append latest RUN_AND_CLIP log (X11-only) ---
+LAST_RUN_LOG=""
+if [ -d "_drive_stage/runlogs" ]; then
+  LAST_RUN_LOG="_drive_stage/runlogs/run.20251218T000901-0600.log"
+fi
+
+if [ -n "" ] && [ -f "" ]; then
+  echo
+  echo "=== LAST_RUN_AND_CLIP_LOG ==="
+  echo "FILE: "
+  echo "--- BEGIN ---"
+  # Keep it bounded so the startup payload stays sane
+  tail -n 220 "" || true
+  echo "--- END ---"
+fi
+# --- End latest RUN_AND_CLIP log ---
+
