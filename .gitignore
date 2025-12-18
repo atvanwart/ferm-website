@@ -34,3 +34,5 @@ file
 serves
 check_canvas_env.js
 ferm-tools.sh
+_drive_stage/
+_drive_sync/
