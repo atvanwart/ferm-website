@@ -1,0 +1,9 @@
+# Files to embed into 90_startup.sh. One path per line.
+# APPENDIX_MAP.md is embedded in FULL (not truncated).
+
+STRUCTURE.md
+PROJECT_STATE.md
+RUNBOOK.md
+APPENDIX_MAP.md
+FERM_RUNBOOK.sh
+CHECKSUMS.sha256

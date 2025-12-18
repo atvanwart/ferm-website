@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fermentors — OTP Login</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; }
+    h1 { margin: 0 0 8px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 16px 0; }
+    label { display: block; margin: 10px 0 6px; font-weight: 600; }
+    input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+    button { padding: 10px 14px; border: 1px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 10px; overflow: auto; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 180px; }
+    .muted { color: #555; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>OTP Login</h1>
+  <div class="muted">Email is transport only. Session token is stored locally (dev posture).</div>
+
+  <div class="card">
+    <h2>1) Send code</h2>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="name@example.com" autocomplete="email" />
+    <div style="margin-top:12px;">
+      <button id="sendBtn">Send OTP</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2) Verify code</h2>
+    <label>Code</label>
+    <input id="code" type="text" placeholder="123456" inputmode="numeric" />
+    <div class="row" style="margin-top:12px;">
+      <button id="verifyBtn">Verify OTP</button>
+      <button id="whoamiBtn">Call /me</button>
+      <button id="clearBtn">Clear token</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Output</h2>
+    <pre id="out">{ "ready": true }</pre>
+  </div>
+
+<script>
+(function(){
+  const out = document.getElementById('out');
+  const emailEl = document.getElementById('email');
+  const codeEl  = document.getElementById('code');
+
+  const sendBtn   = document.getElementById('sendBtn');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const whoamiBtn = document.getElementById('whoamiBtn');
+  const clearBtn  = document.getElementById('clearBtn');
+
+  function setOut(obj) {
+    out.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  }
+
+  function getToken() {
+    return localStorage.getItem('ferm_access_token') || '';
+  }
+
+  function setToken(t) {
+    if (t) localStorage.setItem('ferm_access_token', t);
+  }
+
+  function clearToken() {
+    localStorage.removeItem('ferm_access_token');
+  }
+
+  async function postJson(url, body) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    const text = await r.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch {}
+    return { status: r.status, json, text };
+  }
+
+  async function getJson(url) {
+    const token = getToken();
+    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+    const r = await fetch(url, { headers });
+    const text = await r.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch {}
+    return { status: r.status, json, text };
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const email = (emailEl.value || '').trim();
+    if (!email) return setOut({ ok:false, error:'Enter email first.' });
+
+    sendBtn.disabled = true;
+    try {
+      const resp = await postJson('/auth/start', { email });
+      setOut({ step: 'auth/start', ...resp });
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    const email = (emailEl.value || '').trim();
+    const token = (codeEl.value || '').trim();
+    if (!email || !token) return setOut({ ok:false, error:'Enter email and code.' });
+
+    verifyBtn.disabled = true;
+    try {
+      const resp = await postJson('/auth/verify', { email, token });
+      const at = resp.json && resp.json.session && resp.json.session.access_token;
+      if (at) setToken(at);
+      setOut({ step: 'auth/verify', token_saved: !!getToken(), ...resp });
+    } finally {
+      verifyBtn.disabled = false;
+    }
+  });
+
+  whoamiBtn.addEventListener('click', async () => {
+    const resp = await getJson('/me');
+    setOut({ step: 'me', token_present: !!getToken(), ...resp });
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    clearToken();
+    setOut({ step: 'clear', token_present: !!getToken() });
+  });
+
+  setOut({ ready: true, token_present: !!getToken() });
+})();
+</script>
+</body>
+</html>
