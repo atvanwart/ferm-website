@@ -11,7 +11,8 @@ if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 1 2>/dev/null || exit 1
 fi
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Repo root is one level above FERM_RUNBOOK_SH/
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 persona="${1:-alden}"
@@ -96,7 +97,7 @@ emit_file_block "MEMORY" "memory/session_last_summary.md" full
 emit_file_block "MEMORY" "memory/decisions.md" head160
 echo
 
-# Include key docs (existing behavior preserved)
+# Include key docs
 for doc in PROJECT_STATE.md RUNBOOK.md STRUCTURE.md APPENDIX_MAP.md CHECKSUMS.sha256; do
   [ -f "$doc" ] || continue
   echo
@@ -104,7 +105,7 @@ for doc in PROJECT_STATE.md RUNBOOK.md STRUCTURE.md APPENDIX_MAP.md CHECKSUMS.sh
   head -n 160 "$doc" || cat "$doc"
 done
 
-# Include runbook script itself (existing behavior preserved)
+# Include runbook script itself
 echo
 echo "-- FERM_RUNBOOK.sh (head 160) --"
 head -n 160 FERM_RUNBOOK.sh
