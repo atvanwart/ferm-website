@@ -19,6 +19,23 @@ Shows full git status + diff stats + docs diff.
 
 ---
 
+## Session startup (persona-aware, clipboard-first)
+
+### Generate startup context (recommended default)
+Emits the full, **persona-aware startup bundle** (base → persona delta → memory artifacts)
+and copies it directly to your clipboard for pasting into chat.
+
+./scripts/FERM_RUNBOOK.sh startup-clip [alden|spark]
+
+If no persona is specified, `alden` is used by default.
+
+### Generate startup context (terminal output)
+Same as above, but prints to the terminal instead of copying to clipboard.
+
+./scripts/FERM_RUNBOOK.sh startup [alden|spark]
+
+---
+
 ## Start / Stop
 
 ### Start server
@@ -113,3 +130,50 @@ curl -sS -X POST "http://localhost:3000/signup" \
 curl -sS -X POST "http://localhost:3000/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"test+handshake@yourdomain.com","password":"Use-A-Strong-Test-Password-Here"}' | python3 -m json.tool
+
+---
+
+## Handshake debug (no scrolling)
+
+### Quick “is the endpoint alive?”
+curl -sS -i http://localhost:3000/handshake/preview | head -n 40
+
+### If /handshake/preview is 404, you’re probably hitting an old server PID
+Use this to kill the node process that is actually listening on :3000, then restart:
+
+cd ~/Adam_Van_Wart/fermentors/ferm-website
+PID_LISTEN="$(ss -ltnp 2>/dev/null | awk '/:3000/ && /users:\(\("node"/ { if (match($0,/pid=([0-9]+)/,m)) { print m[1]; exit } }')"
+echo "pid_listen=${PID_LISTEN:-none}"
+if [ -n "${PID_LISTEN:-}" ]; then kill "$PID_LISTEN" 2>/dev/null || true; sleep 1; kill -9 "$PID_LISTEN" 2>/dev/null || true; fi
+nohup node server.js > server.log 2>&1 & echo $! > .fermentors-server.pid
+sleep 1
+ss -ltnp | grep ':3000' || true
+
+### Clipboard-first: capture debug output (recommended)
+# Use the debug block in chat to write output to /tmp/... then:
+./scripts/FERM_RUNBOOK.sh clip /tmp/ferm_handshake_debug.txt
+
+---
+
+## Safety Rules for Shell Usage
+
+### Interactive Shell Rules
+- Never run `set -e`, `set -u`, or `set -o pipefail` in an interactive shell.
+- Never combine environment mutation and execution in a single command.
+- If strict mode is required, use a subshell:
+  `( set -euo pipefail; ./script.sh )`
+
+### Script Rules
+- All scripts must:
+  - include a shebang
+  - refuse to be sourced
+  - write outputs to disk before optional side effects
+- Clipboard operations are always best-effort and non-fatal.
+
+### Prohibited Patterns
+- One-liner pipelines that:
+  - write files
+  - modify `.env`
+  - start or stop servers
+  - mutate database state
+- Silent failures hidden behind `|| true` unless explicitly justified.
