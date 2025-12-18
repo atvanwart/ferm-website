@@ -48,6 +48,10 @@ case "${1:-}" in
     shift
     FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}"
     ;;
+  startup-clip)
+    shift
+    FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}" | clip_cmd -
+    ;;
   start-hint)
     echo "Start server (in another terminal):"
     echo "  cd $ROOT && node server.js"
@@ -104,6 +108,7 @@ case "${1:-}" in
     echo "  ./FERM_RUNBOOK.sh pack <files...>"
     echo "  ./FERM_RUNBOOK.sh pack-core"
     echo "  ./FERM_RUNBOOK.sh startup [alden|spark]"
+    echo "  ./FERM_RUNBOOK.sh startup-clip [alden|spark]"
     echo "  ./FERM_RUNBOOK.sh drive-pull-seed <PARKING_LOT.md|LESSONS_LEARNED.md|SESSION_SNAPSHOTS.md>"
     echo "  ./FERM_RUNBOOK.sh drive-push-seed <PARKING_LOT.md|LESSONS_LEARNED.md|SESSION_SNAPSHOTS.md> [--force]"
     echo "  ./FERM_RUNBOOK.sh sumcheck"
