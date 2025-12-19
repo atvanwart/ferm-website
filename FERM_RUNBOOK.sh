@@ -12,7 +12,7 @@ cd "$ROOT"
 # RB.5  drive wrappers          -> FERM_RUNBOOK_SH/40_drive.sh
 # RB.9  session bootstrap       -> FERM_RUNBOOK_SH/90_startup.sh
 
-# Load modules (explicit allowlist: operational only)
+# Load modules (explicit allowlist)
 for m in \
   FERM_RUNBOOK_SH/00_core.sh \
   FERM_RUNBOOK_SH/10_admin.sh \
@@ -29,11 +29,25 @@ need node
 need curl
 need python3
 need sha256sum
-need xclip
+# need xclip (DISABLED by policy: no clipboard workflows)
+
+# RB.0  file-path fallback (artifact-first; writes to ~/Desktop/chatGPT_feedback/)
+# If args are files, pack them and copy to clipboard.
+# Reject secret-ish paths via is_secret_path() from 00_core.sh.
+if [ "${1:-}" != "" ] && [ "${1#-}" = "$1" ] && [ -f "${1:-}" ]; then
+  for p in "$@"; do
+    [ -f "$p" ] || die "Not a file: $p"
+    if is_secret_path "$p"; then
+      die "Refusing to pack secret path: $p"
+    fi
+  done
+  OUTDIR="$HOME/Desktop/chatGPT_feedback"; mkdir -p "$OUTDIR"; TS="$(date +%Y%m%d_%H%M%S)"; OUTFILE="$OUTDIR/pack_${TS}.txt"; pack_files "$@" > "$OUTFILE"; echo "WROTE: $OUTFILE"
+  exit 0
+fi
 
 case "${1:-}" in
-  clip)      shift; clip_cmd "${1:-}" ;;
-  clipout)   clipout_cmd ;;
+  clip)      die "Policy: clipboard commands disabled. Use file artifacts in ~/Desktop/chatGPT_feedback/." ;;
+  clipout)   die "Policy: clipboard commands disabled. Use files in ~/Desktop/chatGPT_feedback/." ;;
   pack)      shift; pack_files "$@" ;;
   pack-core) pack_files $(pack_core_files) ;;
   drive-pull-seed)
@@ -46,11 +60,18 @@ case "${1:-}" in
     ;;
   startup)
     shift
+    # DEFAULT: clipboard-first
+    OUTDIR="$HOME/Desktop/chatGPT_feedback"; mkdir -p "$OUTDIR"; TS="$(date +%Y%m%d_%H%M%S)"; OUTFILE="$OUTDIR/startup_${TS}.txt"; FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}" > "$OUTFILE"; echo "WROTE: $OUTFILE"
+    ;;
+  startup-term)
+    shift
+    # Explicit terminal output
     FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}"
     ;;
   startup-clip)
+    # Legacy alias
     shift
-    FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}" | clip_cmd -
+    OUTDIR="$HOME/Desktop/chatGPT_feedback"; mkdir -p "$OUTDIR"; TS="$(date +%Y%m%d_%H%M%S)"; OUTFILE="$OUTDIR/startup_${TS}.txt"; FERM_RUNBOOK_SH/90_startup.sh "${1:-alden}" > "$OUTFILE"; echo "WROTE: $OUTFILE"
     ;;
   start-hint)
     echo "Start server (in another terminal):"
@@ -63,24 +84,33 @@ case "${1:-}" in
     ;;
   health)
     load_admin_creds
-    curl -s -o /dev/null -w "health=%{http_code}\n" -u "${ADMIN_USER}:${ADMIN_PASS}" http://localhost:3000/admin/health
+    curl -s -o /dev/null -w "health=%{http_code}\n" \
+      -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      http://localhost:3000/admin/health
     ;;
   ui-smoke)
     load_admin_creds
-    curl -s -o /dev/null -w "ui_index=%{http_code}\n" -u "${ADMIN_USER}:${ADMIN_PASS}" http://localhost:3000/admin/ui/
+    curl -s -o /dev/null -w "ui_index=%{http_code}\n" \
+      -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      http://localhost:3000/admin/ui/
     echo "--- ui.html ---"
-    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" http://localhost:3000/admin/ui/ui.html | head -n 15
+    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      http://localhost:3000/admin/ui/ui.html | head -n 15
     echo "--- ui.css ---"
-    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" http://localhost:3000/admin/ui/ui.css | head -n 10
+    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      http://localhost:3000/admin/ui/ui.css | head -n 10
     echo "--- ui.js ---"
-    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" http://localhost:3000/admin/ui/ui.js | head -n 10
+    curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      http://localhost:3000/admin/ui/ui.js | head -n 10
     ;;
   courses)
     admin_curl http://localhost:3000/admin/api/courses | python3 -m json.tool
     ;;
   autopurge)
-    slug="${2:-}"; [ -n "$slug" ] || die "Usage: ./FERM_RUNBOOK.sh autopurge <slug>"
-    admin_curl "http://localhost:3000/admin/api/autopurge/${slug}" | python3 -m json.tool
+    slug="${2:-}"
+    [ -n "$slug" ] || die "Usage: ./FERM_RUNBOOK.sh autopurge <slug>"
+    admin_curl "http://localhost:3000/admin/api/autopurge/${slug}" \
+      | python3 -m json.tool
     ;;
   check-js)    check_js ;;
   check-json)  check_json ;;
@@ -103,18 +133,11 @@ case "${1:-}" in
   appendix)    appendix_cmd ;;
   *)
     echo "Usage:"
-    echo "  ./FERM_RUNBOOK.sh clip <file|-"
-    echo "  ./FERM_RUNBOOK.sh clipout"
+    echo "  ./FERM_RUNBOOK.sh startup [alden|spark]       # clipboard-first (default)"
+    echo "  ./FERM_RUNBOOK.sh startup-term [alden|spark] # terminal output"
+    echo "  ./FERM_RUNBOOK.sh startup-clip [alden|spark] # legacy alias"
     echo "  ./FERM_RUNBOOK.sh pack <files...>"
-    echo "  ./FERM_RUNBOOK.sh pack-core"
-    echo "  ./FERM_RUNBOOK.sh startup [alden|spark]"
-    echo "  ./FERM_RUNBOOK.sh startup-clip [alden|spark]"
-    echo "  ./FERM_RUNBOOK.sh drive-pull-seed <PARKING_LOT.md|LESSONS_LEARNED.md|SESSION_SNAPSHOTS.md>"
-    echo "  ./FERM_RUNBOOK.sh drive-push-seed <PARKING_LOT.md|LESSONS_LEARNED.md|SESSION_SNAPSHOTS.md> [--force]"
+    echo "  ./FERM_RUNBOOK.sh <file...>                  # pack + clipboard (safe fallback)"
     echo "  ./FERM_RUNBOOK.sh sumcheck"
-    echo "  ./FERM_RUNBOOK.sh appendix"
-    echo "  ./FERM_RUNBOOK.sh size-audit [warn] [fail]"
-    echo "  ./FERM_RUNBOOK.sh git-audit"
-    echo "  ./FERM_RUNBOOK.sh checksum && ./FERM_RUNBOOK.sh verify"
     ;;
 esac

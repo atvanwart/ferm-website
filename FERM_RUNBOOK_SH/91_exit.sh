@@ -4,80 +4,119 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-need_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "FAIL: missing $1"; exit 1; }; }
-need_cmd rclone
-need_cmd date
-need_cmd sed
-need_cmd tee
+OUT="$HOME/Desktop/chatGPT_feedback"
+mkdir -p "$OUT"
 
-# Prefer runbook clip helper if present; fall back to xclip.
-clip_file() {
-  local f="$1"
-  if [ -x "./FERM_RUNBOOK.sh" ]; then
-    ./FERM_RUNBOOK.sh clip "$f" 2>/dev/null && return 0
-  fi
-  if command -v xclip >/dev/null 2>&1; then
-    xclip -selection clipboard < "$f"
-    return 0
-  fi
-  echo "WARN: no clip method available (FERM_RUNBOOK.sh clip or xclip)"
-  return 0
-}
+TS_ISO="$(date -Is)"
+TS_FILE="$(date +%Y%m%d_%H%M%S)"
 
-STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="/tmp/fermentors_exit_${STAMP}.txt"
+TEMPLATE="$OUT/EXIT_INPUT_TEMPLATE_${TS_FILE}.txt"
+SNAP="$OUT/EXIT_SNAPSHOT_${TS_FILE}.txt"
+LOG="$OUT/EXIT_LOG_${TS_FILE}.log"
+NEXT_STARTUP="$OUT/NEXT_STARTUP_NOTES_${TS_FILE}.txt"
 
-echo "== Exit: pull shared artifacts ==" | tee "$OUT" >/dev/null
-mkdir -p _drive_sync
-
-for f in PARKING_LOT.md LESSONS_LEARNED.md SESSION_SNAPSHOTS.md; do
-  if [ -x "./FERM_RUNBOOK.sh" ]; then
-    ./FERM_RUNBOOK.sh drive-pull-seed "$f" >/dev/null 2>&1 || true
-  else
-    rclone copyto "fermdrive:${f}" "_drive_sync/${f}" >/dev/null 2>&1 || true
-  fi
-done
-
-# Snapshot: facts only (primary)
 {
-  echo "=== Fermentors Exit Snapshot ==="
-  echo "TIME: $(date -Is)"
+  echo "EXIT_LOG"
+  echo "TIME: $TS_ISO"
+  echo "ROOT: $ROOT"
+  echo "PWD: $(pwd)"
+  echo "SHELL: ${SHELL-}"
+  echo "BASH: ${BASH_VERSION-}"
+  echo
+} > "$LOG"
+
+cat > "$TEMPLATE" <<EOT
+# EXIT_INPUT (fill this in before starting next session)
+
+[SUMMARY]
+(one paragraph, max ~8 lines)
+
+[LESSONS_LEARNED]
+- (max 7 bullets; include concrete mistakes + prevention)
+
+[PARKING_LOT]
+- (max 10 bullets; “later” items, no action now)
+
+[DECISIONS]
+- (max 7 bullets)
+
+[NEXT]
+- (max 7 bullets; first 1–2 must be executable/decidable tomorrow)
+EOT
+
+# Write tomorrow’s startup notes NOW (so you don’t have to remember)
+{
+  echo "NEXT STARTUP NOTES"
+  echo "TIME: $TS_ISO"
+  echo
+  echo "KNOWN PITFALLS"
+  echo "- 90_startup.sh takes a persona NAME (e.g., alden), not a path like personas/alden.delta.md."
+  echo "- Passing a path injects slashes into filenames and can break log creation."
+  echo "- FERM_RUNBOOK.sh may currently be syntactically broken (\"unexpected EOF\") — run bash -n before using it."
+  echo
+  echo "TOMORROW FIRST MOVES (order)"
+  echo "1) bash -n FERM_RUNBOOK.sh || true    # confirm it parses"
+  echo "2) git status --porcelain=v1"
+  echo "3) bash FERM_RUNBOOK_SH/90_startup.sh alden   # writes STARTUP_* file"
+  echo
+  echo "PARKING LOT"
+  echo "- Build APPENDIX_MAP.md generator from APPENDIX_FILE_LIST.txt (no manual edits)."
+  echo "- Fix FERM_RUNBOOK.sh usage block safely (avoid perl one-liners that can corrupt quotes)."
+  echo "- Remove/retire clipboard modules (05_clip_cmd.sh, 10.clip_x11.sh, 20.run_and_clip.sh) after deprecation plan."
+} > "$NEXT_STARTUP" 2>>"$LOG"
+
+{
+  echo "BEGINEXIT: $TS_ISO"
   echo "ROOT: $ROOT"
   echo
-  echo "== git =="
-  if command -v git >/dev/null 2>&1 && [ -d .git ]; then
-    git rev-parse --abbrev-ref HEAD 2>/dev/null || true
-    git rev-parse HEAD 2>/dev/null || true
-    echo "--- status ---"
-    git status --porcelain 2>/dev/null || true
-    echo "--- last 5 commits ---"
-    git log -n 5 --oneline 2>/dev/null || true
-  else
-    echo "no git repo detected"
-  fi
-  echo
-  echo "== server process hint (port 3000) =="
-  if command -v ss >/dev/null 2>&1; then
-    ss -ltnp 2>/dev/null | awk '/:3000/ {print}' || true
-  else
-    echo "ss not available"
-  fi
-  echo
-  echo "== HTTP smoke =="
-  if command -v curl >/dev/null 2>&1; then
-    echo "--- /handshake/preview ---"
-    curl -s -i http://localhost:3000/handshake/preview || true
-    echo
-    echo "--- /auth.html (HEAD) ---"
-    curl -s -I http://localhost:3000/auth.html || true
-  else
-    echo "curl not available"
-  fi
-  echo
-  echo "== Drive listing (root constrained) =="
-  rclone lsf fermdrive: 2>/dev/null || true
-} | tee "$OUT" >/dev/null
 
-clip_file "$OUT"
-echo "OK: exit snapshot captured -> $OUT"
-echo "OK: snapshot copied to clipboard (if clip available)"
+  echo "WROTE:"
+  echo "  TEMPLATE: $TEMPLATE"
+  echo "  SNAPSHOT: $SNAP"
+  echo "  LOG:      $LOG"
+  echo "  NEXT:     $NEXT_STARTUP"
+  echo
+
+  echo "== GIT =="
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "branch: $(git rev-parse --abbrev-ref HEAD)"
+    echo "commit: $(git rev-parse --short HEAD)"
+    echo
+    echo "-- status --"
+    git status --porcelain=v1 || true
+    echo
+    echo "-- diff (stat) --"
+    git diff --stat || true
+  else
+    echo "(no git repo detected)"
+  fi
+  echo
+
+  echo "== PARSE GATES =="
+  echo "-- bash -n FERM_RUNBOOK.sh --"
+  bash -n FERM_RUNBOOK.sh >/dev/null 2>&1 && echo "OK: FERM_RUNBOOK.sh parses" || echo "FAIL: FERM_RUNBOOK.sh parse error"
+  echo "-- bash -n 90_startup.sh / 91_exit.sh --"
+  bash -n FERM_RUNBOOK_SH/90_startup.sh >/dev/null 2>&1 && echo "OK: 90_startup.sh parses" || echo "FAIL: 90_startup.sh parse error"
+  bash -n FERM_RUNBOOK_SH/91_exit.sh >/dev/null 2>&1 && echo "OK: 91_exit.sh parses" || echo "FAIL: 91_exit.sh parse error"
+  echo
+
+  echo "== PORT 3000 =="
+  ss -ltnp 2>/dev/null | awk "/:3000/ {print}" || true
+  echo
+
+  echo "== NODE PROCS =="
+  ps aux | grep -E "[n]ode.*server|[n]ode.*ferment" || true
+  echo
+
+  echo "== server.log tail =="
+  tail -n 160 server.log 2>/dev/null || true
+  echo
+
+  echo "ENDEXIT: $TS_ISO"
+} > "$SNAP" 2>>"$LOG"
+
+echo "OK: exit artifacts written"
+echo "TEMPLATE: $TEMPLATE"
+echo "SNAPSHOT: $SNAP"
+echo "LOG: $LOG"
+echo "NEXT: $NEXT_STARTUP"

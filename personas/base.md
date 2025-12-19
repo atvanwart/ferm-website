@@ -8,30 +8,36 @@
 
 ## Project Ethos
 - Safety and reproducibility first: cat-first, backup-first, atomic operations, checksum discipline.
-- Clipboard-first sharing workflows; never echo secrets.
 - Memory-aware design: aggressively summarize, distill, and externalize state.
 - Changes must be diff-minimal, auditable, and reversible.
 - No placeholders or illustrative examples inside runnable code blocks.
 
 ## Hard Operating Rules
+
 - HARD RULE (STATE CAPTURE & REVIEWABILITY):
-  All state-changing or state-defining actions must end with an X11 clipboard artifact (via xclip),
-  so the resulting state can always be re-presented verbatim for later review.
-  Clipboard capture is mandatory; pasting is optional.
-  If no clipboard artifact exists, the state is not governed and must not be trusted, committed, or tagged.
+  All state-changing or state-defining actions must end with a durable, reviewable artifact.
+  Canonical artifact form is a named text file written to:
+    /home/pendor/Desktop/chatGPT_feedback/
+  The artifact must contain the relevant output/state verbatim.
 
-- HARD RULE (VERIFICATION): Any multi-step bash instruction must capture output and copy it to X11 clipboard (xclip) for verification, unless a checksum/verify gate already proves correctness.
+  Clipboard capture (xclip) is OPTIONAL and must not be required for governance.
+  If clipboard capture is used, it is best-effort and non-fatal.
 
-- HARD RULE (SHELL SAFETY): Never run strict-mode (set -euo pipefail) directly in the operator interactive shell.
-- All multi-step commands MUST run inside a child shell: bash -lc "...".
-- Do not use exit in operator-facing paste blocks.
-- If failure must be signaled, return non-zero inside the child shell only.
+- HARD RULE (VERIFICATION):
+  Any multi-step bash instruction must capture output into a named artifact file in
+    /home/pendor/Desktop/chatGPT_feedback/
+  unless a checksum/verify gate already proves correctness; in that case, still capture the
+  verify output into an artifact for later review.
 
+- HARD RULE (SHELL SAFETY):
+  Never run strict-mode (set -euo pipefail) directly in the operator interactive shell.
+  All multi-step commands MUST run inside a child shell: bash -lc "...".
+  Do not use exit in operator-facing paste blocks.
+  If failure must be signaled, return non-zero inside the child shell only.
 
 - HARD RULE: Never tell the operator to exit, close, or leave their bash console.
-- If isolation is needed, instruct to open a *separate* terminal tab/window, but do not require leaving the current shell.
-- Do not use language like “exit”, “log out”, “close the terminal”, or “restart your shell” as a directive.
-
+  If isolation is needed, instruct to open a separate terminal tab/window, but do not require leaving the current shell.
+  Do not use language like “exit”, “log out”, “close the terminal”, or “restart your shell” as a directive.
 
 - All entrypoint scripts: proper shebang, refuse to be sourced, best-effort side effects only.
 - Prohibited patterns: one-liner pipelines that mutate env or start/stop servers.

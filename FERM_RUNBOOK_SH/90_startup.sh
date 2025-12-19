@@ -1,133 +1,89 @@
 #!/usr/bin/env bash
-# RB.9.0 startup – session bootstrap (persona-aware)
-# Purpose: Emit a reproducible session bundle for LLM collaboration
-# Policy: Never echo secrets. Emit layered persona + tiny memory artifacts.
-
 set -euo pipefail
 
-# Refuse to be sourced
-if [ "${BASH_SOURCE[0]}" != "$0" ]; then
-  echo "ERROR: Do not source this script. Run it as an entrypoint." >&2
-  return 1 2>/dev/null || exit 1
-fi
-
-# Repo root is one level above FERM_RUNBOOK_SH/
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 persona="${1:-alden}"
-case "$persona" in
-  alden|spark) ;;
-  *)
-    echo "Usage: FERM_RUNBOOK_SH/90_startup.sh [alden|spark]" >&2
-    exit 2
-    ;;
-esac
 
-base_path="personas/base.md"
-delta_path="personas/${persona}.delta.md"
+OUT="$HOME/Desktop/chatGPT_feedback"
+mkdir -p "$OUT"
 
-die() { echo "ERROR: $*" >&2; exit 1; }
+TS_ISO="$(date -Is)"
+TS_FILE="$(date +%Y%m%d_%H%M%S)"
+
+OUTFILE="$OUT/STARTUP_${persona}_${TS_FILE}.txt"
+LOG="$OUT/STARTUP_LOG_${persona}_${TS_FILE}.log"
+
+{
+  echo "STARTUP_LOG"
+  echo "TIME: $TS_ISO"
+  echo "ROOT: $ROOT"
+  echo "persona: $persona"
+  echo "PWD: $(pwd)"
+  echo "BASH: ${BASH_VERSION-}"
+  echo
+} > "$LOG"
 
 emit_file_block() {
-  # Emit a file with a header; head-limited unless forced full
-  # Args: <label> <path> <mode>  mode: full|head160
-  local label="$1"
-  local path="$2"
-  local mode="$3"
-
-  [ -f "$path" ] || return 0
-  echo
-  echo "-- ${label}: ${path} --"
-  if [ "$mode" = "full" ]; then
-    cat "$path"
-  else
-    head -n 160 "$path" || cat "$path"
-  fi
-}
-
-check_char_limit() {
-  # Args: <path> <limit_chars>
   local path="$1"
-  local limit="$2"
-  [ -f "$path" ] || return 0
-  local chars
-  chars="$(wc -c < "$path" | tr -d ' ')"
-  if [ "$chars" -gt "$limit" ]; then
-    die "Layer C size limit exceeded: ${path} chars=${chars} > ${limit}"
+  local label="$2"
+  if [ -f "$path" ]; then
+    echo "=== BEGINFILE: $label ($path) ==="
+    cat "$path"
+    echo
+    echo "=== ENDFILE: $label ==="
+    echo
+  else
+    echo "=== MISSING: $label ($path) ==="
+    echo
   fi
 }
 
-echo "BEGINSTARTUP: $(date +%Y-%m-%dT%H:%M:%S%z)"
-echo "ROOT: $ROOT"
-echo "PERSONA: $persona"
-echo
-
-echo "== ENV (keys only; values suppressed) =="
-env | cut -d= -f1 | sort
-echo
-
-echo "== GIT =="
-echo "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
-echo "commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-echo
-echo "-- status --"
-git status -s
-echo
-echo "-- recent commits --"
-git log --oneline -8
-echo
-
-# Layer A + B: persona contract
-[ -f "$base_path" ] || die "Missing required persona base: ${base_path}"
-[ -f "$delta_path" ] || die "Missing required persona delta: ${delta_path}"
-
-echo "== PERSONA (Layer A + B) =="
-emit_file_block "BASE"  "$base_path"  full
-emit_file_block "DELTA" "$delta_path" full
-echo
-
-# Layer C: memory artifacts (tiny, enforced)
-check_char_limit "memory/session_current.md" 1000
-check_char_limit "memory/session_last_summary.md" 1500
-
-echo "== MEMORY (Layer C; tiny artifacts) =="
-emit_file_block "MEMORY" "memory/session_current.md" full
-emit_file_block "MEMORY" "memory/session_last_summary.md" full
-emit_file_block "MEMORY" "memory/decisions.md" head160
-echo
-
-# Include key docs
-for doc in PROJECT_STATE.md RUNBOOK.md STRUCTURE.md APPENDIX_MAP.md CHECKSUMS.sha256; do
-  [ -f "$doc" ] || continue
+{
+  echo "BEGINSTARTUP: $TS_ISO"
+  echo "ROOT: $ROOT"
+  echo "persona: $persona"
   echo
-  echo "-- $doc (head $(wc -l < "$doc" | xargs printf "%3d")) --"
-  head -n 160 "$doc" || cat "$doc"
-done
 
-# Include runbook script itself
-echo
-echo "-- FERM_RUNBOOK.sh (head 160) --"
-head -n 160 FERM_RUNBOOK.sh
-
-echo
-echo "ENDSTARTUP: $(date +%Y-%m-%dT%H:%M:%S%z)"
-
-
-# --- Append latest RUN_AND_CLIP log (X11-only) ---
-LAST_RUN_LOG=""
-if [ -d "_drive_stage/runlogs" ]; then
-  LAST_RUN_LOG="_drive_stage/runlogs/run.20251218T000901-0600.log"
-fi
-
-if [ -n "" ] && [ -f "" ]; then
+  echo "== HARD RULES (current) =="
+  echo "- No clipboard workflows (no xclip, no clip_cmd/clipout_cmd usage)."
+  echo "- Use file artifacts in: $OUT"
+  echo "- Keep execution sets small (2 commands at a time)."
   echo
-  echo "=== LAST_RUN_AND_CLIP_LOG ==="
-  echo "FILE: "
-  echo "--- BEGIN ---"
-  # Keep it bounded so the startup payload stays sane
-  tail -n 220 "" || true
-  echo "--- END ---"
-fi
-# --- End latest RUN_AND_CLIP log ---
 
+  echo "== REPO =="
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "branch: $(git rev-parse --abbrev-ref HEAD)"
+    echo "commit: $(git rev-parse --short HEAD)"
+    echo
+    echo "-- status --"
+    git status --porcelain=v1 || true
+    echo
+    echo "-- last 5 commits --"
+    git --no-pager log -n 5 --oneline || true
+  else
+    echo "(no git repo detected)"
+  fi
+  echo
+
+  emit_file_block "personas/base.md" "PERSONA BASE"
+  emit_file_block "personas/${persona}.delta.md" "PERSONA DELTA"
+
+  emit_file_block "PROJECT_STATE.md" "PROJECT_STATE"
+  emit_file_block "RUNBOOK.md" "RUNBOOK"
+  emit_file_block "APPENDIX_MAP.md" "APPENDIX_MAP"
+
+  echo "== QUICK HEALTH =="
+  echo "-- port 3000 --"
+  ss -ltnp 2>/dev/null | awk "/:3000/ {print}" || true
+  echo
+  echo "-- node procs --"
+  ps aux | grep -E "[n]ode.*server|[n]ode.*ferment" || true
+  echo
+
+  echo "ENDSTARTUP: $TS_ISO"
+} > "$OUTFILE" 2>>"$LOG"
+
+echo "WROTE: $OUTFILE"
+echo "LOG:   $LOG"
